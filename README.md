@@ -12,6 +12,17 @@ the stock updates immediately, with who did it and when.
 - **Manage app** (`/manage`) for managers (their own restaurant) and owners (all restaurants):
   dashboard with the reorder list and what to use or bin first, minimum/par levels per fridge,
   stock counts, full history with CSV export, usage & waste reports, staff and PINs, tablet pairing.
+- **Staff accounts.** Give an item a selling price and every take of it is charged to the person
+  whose PIN was used, at the price on that day (a later price change never rewrites history).
+  Record payments (cash, EFT, salary deduction, card, or a credit to correct a charge); a mistaken
+  payment is voided with a reason, never deleted. **Statements** run 16th–15th by default (set per
+  venue), carry the balance forward, and print or save as PDF, one person per page.
+- **Receive & record** for the back office: deliveries with their supplier, and takes or waste
+  entered for someone who forgot the tablet, marked "entered by" in the history.
+
+**Try it on a phone:** <https://erastusm.github.io/fridge-stock/> — a demo build with sample data
+that runs entirely in the browser (each device has its own copy; *Reset demo data* starts over).
+The demo PINs are listed on its home page.
 
 Stock is stored as **batches** (quantity + use-by date). Every change is one database transaction
 that locks the fridge/item row, so two tablets can never both take the last item; a database
@@ -49,6 +60,14 @@ npm test          # server: domain + API tests against fridge_test; web: offline
 
 The API tests include two tablets racing for the last item, PIN lockout, cross-restaurant access,
 idempotent retries, transfers keeping use-by dates, and stock counts.
+
+## Demo build
+
+`npm run build:demo -w web` (Vite `--mode demo`) produces `web/dist-demo/`: the same app with the API
+answered by an in-browser stand-in (`web/src/demo/demoServer.ts`) that reuses the server's FIFO,
+status, date and money rules. It is published to GitHub Pages by `.github/workflows/pages.yml` on
+every push to `main`. It is for trying the screens, not for real records: PINs are kept in plain
+text in the browser and there are no passwords.
 
 ## Production notes
 
