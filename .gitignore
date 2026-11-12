@@ -4,3 +4,4 @@ dist/
 *.log
 server/prisma/seed-credentials.md
 coverage/
+dist-demo/

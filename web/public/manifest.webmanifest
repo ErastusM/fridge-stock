@@ -1,11 +1,12 @@
 {
   "name": "Fridge Stock",
   "short_name": "Fridge Stock",
-  "description": "Fridge stock tracking for the Lighthouse group, Swakopmund",
-  "start_url": "/",
+  "description": "Fridge stock tracking for the Lighthouse Group, Swakopmund",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0f2a43",
-  "theme_color": "#0f2a43",
-  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "background_color": "#ffffff",
+  "theme_color": "#54595f",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

@@ -57,3 +57,26 @@ export const KIND_LABEL: Record<string, string> = {
   BAR: 'Bar',
   FREEZER: 'Freezer',
 };
+
+// Money is integer cents; the same rules as the server (one implementation, imported).
+export { formatCents as fmtMoney, parseMoney, statementPeriod, periodMonthFor } from '../../../server/src/domain/money';
+
+export const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  CASH: 'Cash',
+  EFT: 'EFT',
+  SALARY_DEDUCTION: 'Salary deduction',
+  CARD: 'Card',
+  CREDIT: 'Credit / correction',
+};
+
+/** "2026-11" → "November 2026". */
+export function monthLabel(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+/** yyyy-mm-dd → dd/MM/yyyy without any zone conversion (it is already a local day). */
+export function fmtDay(day: string): string {
+  const [y, m, d] = day.split('-');
+  return `${d}/${m}/${y}`;
+}

@@ -40,7 +40,28 @@ export class ApiError extends Error {
 
 type Auth = 'user' | 'device' | 'none';
 
+const DEMO = import.meta.env.VITE_DEMO === '1';
+// Loaded only in demo builds, so the real app never ships the stand-in server.
+const demo = DEMO ? import('../demo/demoServer') : null;
+
+async function demoCall(method: string, url: string, body: unknown, auth: Auth) {
+  const m = await demo!;
+  try {
+    return await m.demoFetch({ method, url, body, userToken: auth === 'user' ? tokens.user() : null, deviceToken: auth === 'device' ? tokens.device() : null });
+  } catch (e) {
+    if (e instanceof m.DemoHttpError) {
+      if (e.status === 401 && auth === 'user') {
+        tokens.setUser(null);
+        window.dispatchEvent(new Event('fs:signed-out'));
+      }
+      throw new ApiError(e.status, e.message, e.details);
+    }
+    throw e;
+  }
+}
+
 export async function api<T = unknown>(method: string, url: string, body?: unknown, auth: Auth = 'user'): Promise<T> {
+  if (DEMO) return (await demoCall(method, url, body, auth)).data as T;
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['content-type'] = 'application/json';
   const t = auth === 'user' ? tokens.user() : auth === 'device' ? tokens.device() : null;
@@ -76,10 +97,18 @@ function safeJson(t: string): unknown {
 
 /** Download a CSV through the authenticated API (a plain link could not carry the token). */
 export async function downloadCsv(url: string, fallbackName: string) {
+  if (DEMO) {
+    const r = await demoCall('GET', url, undefined, 'user');
+    return saveBlob(new Blob(['\uFEFF' + (r.csv ?? '')], { type: 'text/csv' }), r.filename ?? fallbackName);
+  }
   const res = await fetch(`/api${url}`, { headers: { authorization: `Bearer ${tokens.user() ?? ''}` } });
   if (!res.ok) throw new ApiError(res.status, 'Download failed');
   const blob = await res.blob();
   const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? fallbackName;
+  saveBlob(blob, name);
+}
+
+function saveBlob(blob: Blob, name: string) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = name;

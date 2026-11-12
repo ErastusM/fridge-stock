@@ -4,6 +4,7 @@ import { get, post, tokens } from '../../lib/api';
 import type { Restaurant, User } from '../../lib/types';
 import { Button, cx, ErrorNote, Field, inputCls, Spinner } from '../../components/ui';
 import { Ctx } from './context';
+import { DemoSignIn, IS_DEMO } from '../../demo/DemoBits';
 import Dashboard from './Dashboard';
 import StockPage from './StockPage';
 import StockCount from './StockCount';
@@ -12,11 +13,17 @@ import Reports from './Reports';
 import Setup from './Setup';
 import StaffPage from './StaffPage';
 import Tablets from './Tablets';
+import Accounts from './Accounts';
+import Statements from './Statements';
+import Receive from './Receive';
 
 const NAV = [
   { to: '', label: 'Dashboard' },
   { to: 'stock', label: 'Stock' },
+  { to: 'receive', label: 'Receive & record' },
   { to: 'count', label: 'Stock count' },
+  { to: 'accounts', label: 'Staff accounts' },
+  { to: 'statements', label: 'Statements' },
   { to: 'history', label: 'History' },
   { to: 'reports', label: 'Reports' },
   { to: 'setup', label: 'Fridges & items' },
@@ -92,7 +99,7 @@ export default function ManageApp() {
   return (
     <Ctx.Provider value={{ user, restaurants, restaurantId, setRestaurantId, reloadRestaurants, signOut }}>
       <div className="min-h-full">
-        <header className="sticky top-0 z-30 bg-navy-800 text-white shadow">
+        <header className="no-print sticky top-0 z-30 border-b-4 border-beacon-500 bg-navy-800 text-white shadow">
           <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
             <button className="rounded-lg p-2 lg:hidden" onClick={() => setMenuOpen((o) => !o)} aria-label="Menu">
               ☰
@@ -121,7 +128,7 @@ export default function ManageApp() {
           </div>
         </header>
         <div className="mx-auto flex max-w-6xl gap-6 px-4 py-6">
-          <nav className={cx('w-48 shrink-0 space-y-1 lg:block', menuOpen ? 'fixed inset-y-0 left-0 z-40 block w-64 bg-white p-4 pt-20 shadow-xl' : 'hidden')}>
+          <nav className={cx('no-print w-48 shrink-0 space-y-1 lg:block', menuOpen ? 'fixed inset-y-0 left-0 z-40 block w-64 bg-white p-4 pt-20 shadow-xl' : 'hidden')}>
             {NAV.map((n) => (
               <NavLink
                 key={n.to}
@@ -139,6 +146,9 @@ export default function ManageApp() {
               <Route index element={<Dashboard />} />
               <Route path="stock" element={<StockPage />} />
               <Route path="count" element={<StockCount />} />
+              <Route path="receive" element={<Receive />} />
+              <Route path="accounts" element={<Accounts />} />
+              <Route path="statements" element={<Statements />} />
               <Route path="history" element={<History />} />
               <Route path="reports" element={<Reports />} />
               <Route path="setup" element={<Setup />} />
@@ -173,12 +183,20 @@ function Login({ onIn }: { onIn: () => Promise<void> }) {
     }
   };
   return (
-    <div className="flex min-h-full items-center justify-center bg-navy-800 p-4">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-3xl bg-white p-8 shadow-xl">
+    <div className="flex min-h-full items-center justify-center bg-sand-100 p-4">
+      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-3xl border-t-4 border-beacon-500 bg-white p-8 shadow-xl">
         <div>
           <h1 className="text-2xl font-black text-navy-900">Manager sign in</h1>
-          <p className="text-sm text-navy-500">Fridge Stock · Lighthouse group</p>
+          <p className="text-sm text-navy-500">Fridge Stock · The Lighthouse Group</p>
         </div>
+        {IS_DEMO && (
+          <DemoSignIn
+            onToken={async (t) => {
+              tokens.setUser(t);
+              await onIn();
+            }}
+          />
+        )}
         <Field label="Email">
           <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} required />
         </Field>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, cx, ExpiryBadge } from '../../components/ui';
 import { PinPad } from './PinPad';
-import { addDays, fmtDate, fmtQty, isCounted, localDate, relativeDay, UNIT_LABEL, Unit } from '../../lib/format';
+import { addDays, fmtDate, fmtMoney, fmtQty, isCounted, localDate, relativeDay, UNIT_LABEL, Unit } from '../../lib/format';
 import type { StockLine } from '../../lib/types';
 
 export type Action = 'TAKE' | 'ADD' | 'WASTE' | 'TRANSFER';
@@ -128,6 +128,7 @@ export function ActionSheet({
         <div className="flex flex-wrap items-center gap-3 text-navy-700">
           <span className="text-3xl font-black text-navy-900">{fmtQty(line.qty, unit)}</span>
           <span>in this fridge</span>
+          {line.priceCents !== null && <span className="rounded-md bg-beacon-500 px-2 py-0.5 text-sm font-bold text-white">{fmtMoney(line.priceCents)} each</span>}
           <ExpiryBadge status={line.expiry} />
         </div>
 
@@ -277,6 +278,9 @@ export function ActionSheet({
 
         {action && step === 'pin' && (
           <div>
+            {action === 'TAKE' && line.priceCents !== null && (
+              <p className="mb-3 text-center text-lg font-bold text-beacon-600">{fmtMoney(Math.round(qty * line.priceCents))} will be charged to you</p>
+            )}
             <PinPad onSubmit={submit} busy={busy} error={error} label={`${VERB[action]} ${fmtQty(qty, unit)} — enter your PIN`} />
             <button onClick={() => setStep('details')} className="mx-auto mt-3 block text-navy-500 underline">
               Change details

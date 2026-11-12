@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { get } from '../../lib/api';
 import type { Dashboard as D } from '../../lib/types';
 import { Card, Empty, ErrorNote, ExpiryBadge, Spinner, StockBadge, useLoad } from '../../components/ui';
-import { fmtDate, fmtQty, MOVEMENT_LABEL, relativeDay } from '../../lib/format';
+import { fmtDate, fmtMoney, fmtQty, MOVEMENT_LABEL, relativeDay } from '../../lib/format';
 import { scopeQuery, useManage, useTz } from './context';
 
 export default function Dashboard() {
@@ -31,6 +31,20 @@ export default function Dashboard() {
             <p className="text-sm text-navy-500">
               {s.fridges} fridges · {s.items} stocked lines
             </p>
+            <div className="mt-3 grid grid-cols-3 gap-2 border-y border-navy-100 py-3 text-sm">
+              <div>
+                <p className="text-navy-500">Stock value</p>
+                <p className="text-lg font-black">{fmtMoney(s.stockValueCents)}</p>
+              </div>
+              <div>
+                <p className="text-navy-500">Sales today</p>
+                <p className="text-lg font-black">{fmtMoney(s.salesTodayCents)}</p>
+              </div>
+              <Link to="/manage/accounts" className="hover:underline">
+                <p className="text-navy-500">Owed by staff</p>
+                <p className={`text-lg font-black ${s.owedCents > 0 ? 'text-beacon-600' : ''}`}>{fmtMoney(s.owedCents)}</p>
+              </Link>
+            </div>
             <div className="mt-3 grid grid-cols-4 gap-2 text-center">
               <Stat n={s.out} label="Out" tone="bg-beacon-500 text-white" />
               <Stat n={s.low} label="Low" tone="bg-amber-100 text-amber-900" />

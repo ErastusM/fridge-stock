@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { downloadCsv, get } from '../../lib/api';
 import type { Fridge, Item, Movement, StaffMember } from '../../lib/types';
 import { Button, Card, cx, Empty, ErrorNote, Field, inputCls, Spinner, useLoad } from '../../components/ui';
-import { addDays, fmtDateTime, fmtQty, localDate, MOVEMENT_LABEL } from '../../lib/format';
+import { addDays, fmtDateTime, fmtMoney, fmtQty, localDate, MOVEMENT_LABEL } from '../../lib/format';
 import { scopeQuery, useManage, useTz } from './context';
 import { FridgePicker } from './FridgePicker';
 
@@ -108,6 +108,7 @@ export default function History() {
                 <th className="px-3 py-2 text-right">Qty</th>
                 <th className="px-3 py-2 text-right">Left</th>
                 <th className="px-3 py-2">Fridge</th>
+                <th className="px-3 py-2 text-right">Charged</th>
                 <th className="px-3 py-2">Who</th>
                 <th className="px-3 py-2">Note</th>
               </tr>
@@ -127,8 +128,12 @@ export default function History() {
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-right text-navy-500">{fmtQty(m.qtyAfter, m.item.unit)}</td>
                   <td className="px-3 py-2 text-navy-600">{m.fridge.name}</td>
-                  <td className="px-3 py-2">{m.staff.name}</td>
-                  <td className="px-3 py-2 text-navy-500">{m.reason ?? ''}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right font-semibold">{m.amountCents === null ? '' : fmtMoney(m.amountCents)}</td>
+                  <td className="px-3 py-2">
+                    {m.staff.name}
+                    {m.recordedBy && m.recordedBy.name !== m.staff.name && <div className="text-xs text-navy-500">entered by {m.recordedBy.name}</div>}
+                  </td>
+                  <td className="px-3 py-2 text-navy-500">{[m.supplier && `from ${m.supplier}`, m.reason].filter(Boolean).join(' · ')}</td>
                 </tr>
               ))}
             </tbody>

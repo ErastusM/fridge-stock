@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { downloadCsv, get } from '../../lib/api';
 import type { Fridge, Usage } from '../../lib/types';
 import { Button, Card, Empty, ErrorNote, Field, inputCls, Spinner, useLoad } from '../../components/ui';
-import { addDays, fmtQty, localDate } from '../../lib/format';
+import { addDays, fmtMoney, fmtQty, localDate } from '../../lib/format';
 import { scopeQuery, useManage, useTz } from './context';
 import { FridgePicker } from './FridgePicker';
 
@@ -76,7 +76,10 @@ export default function Reports() {
         <>
           <div className="grid gap-4 lg:grid-cols-3">
             <Card className="overflow-x-auto p-0 lg:col-span-2">
-              <h2 className="px-4 pt-3 font-bold">Totals per item</h2>
+              <h2 className="flex justify-between px-4 pt-3 font-bold">
+                <span>Totals per item</span>
+                {usage.data.salesCents > 0 && <span>Sales {fmtMoney(usage.data.salesCents)}</span>}
+              </h2>
               <table className="w-full text-left text-sm">
                 <thead className="text-navy-600">
                   <tr>
@@ -85,6 +88,7 @@ export default function Reports() {
                     <th className="px-4 py-2 text-right">Wasted</th>
                     <th className="px-4 py-2 text-right">Waste %</th>
                     <th className="px-4 py-2 text-right">Put in</th>
+                    <th className="px-4 py-2 text-right">Sales</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-navy-100">
@@ -100,6 +104,7 @@ export default function Reports() {
                         <td className="px-4 py-2 text-right">{t.wasted ? fmtQty(t.wasted, t.unit) : '—'}</td>
                         <td className={`px-4 py-2 text-right font-semibold ${pct >= 10 ? 'text-beacon-600' : 'text-navy-500'}`}>{t.wasted ? `${pct}%` : '—'}</td>
                         <td className="px-4 py-2 text-right text-navy-600">{t.added ? fmtQty(t.added, t.unit) : '—'}</td>
+                        <td className="px-4 py-2 text-right font-semibold">{t.salesCents ? fmtMoney(t.salesCents) : '—'}</td>
                       </tr>
                     );
                   })}

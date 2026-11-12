@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#0f2a43"/>
+  <rect width="64" height="64" rx="8" fill="#54595f"/>
   <!-- fridge -->
-  <rect x="17" y="10" width="30" height="44" rx="5" fill="#faf7f1"/>
-  <line x1="17" y1="27" x2="47" y2="27" stroke="#0f2a43" stroke-width="2.5"/>
-  <rect x="21" y="16" width="3" height="7" rx="1.5" fill="#0f2a43"/>
-  <rect x="21" y="31" width="3" height="10" rx="1.5" fill="#0f2a43"/>
-  <!-- lighthouse beam -->
-  <circle cx="38" cy="18" r="4" fill="#d6452f"/>
-  <path d="M42 16 L56 11 L56 25 L42 20 Z" fill="#d6452f" opacity="0.45"/>
+  <rect x="17" y="10" width="30" height="44" rx="3" fill="#ffffff"/>
+  <line x1="17" y1="27" x2="47" y2="27" stroke="#54595f" stroke-width="2.5"/>
+  <rect x="21" y="16" width="3" height="7" rx="1.5" fill="#54595f"/>
+  <rect x="21" y="31" width="3" height="10" rx="1.5" fill="#54595f"/>
+  <!-- beam -->
+  <circle cx="38" cy="18" r="4" fill="#dd3333"/>
+  <path d="M42 16 L56 11 L56 25 L42 20 Z" fill="#dd3333" opacity="0.5"/>
 </svg>

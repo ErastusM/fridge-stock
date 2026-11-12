@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react';
 import { get, patch, post } from '../../lib/api';
 import type { Fridge, Item } from '../../lib/types';
 import { Button, Card, Empty, ErrorNote, Field, inputCls, Modal, Spinner, useLoad, useToast } from '../../components/ui';
-import { KIND_LABEL, UNIT_LABEL, UNITS, Unit } from '../../lib/format';
+import { fmtMoney, KIND_LABEL, parseMoney, UNIT_LABEL, UNITS, Unit } from '../../lib/format';
 import { scopeQuery, useManage } from './context';
 
 /** Restaurants (owners), fridges and the item catalogue. */
@@ -12,7 +12,8 @@ export default function Setup() {
   const fridges = useLoad(() => get<Fridge[]>(`/fridges${scopeQuery(restaurantId)}`), [restaurantId]);
   const items = useLoad(() => get<Item[]>(`/items${scopeQuery(restaurantId)}`), [restaurantId]);
   const [editFridge, setEditFridge] = useState<Partial<Fridge> | null>(null);
-  const [editItem, setEditItem] = useState<Partial<Item> | null>(null);
+  const [editItem, setEditItem] = useState<(Partial<Item> & { priceText?: string }) | null>(null);
+  const [editVenue, setEditVenue] = useState<{ id: string; name: string; statementStartDay: number } | null>(null);
   const [newRestaurant, setNewRestaurant] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const defaultRestaurant = restaurantId || (user.role !== 'OWNER' ? user.restaurantId ?? '' : restaurants[0]?.id ?? '');
@@ -44,9 +45,14 @@ export default function Setup() {
           </div>
           <Card className="divide-y divide-navy-100 p-0">
             {restaurants.map((r) => (
-              <div key={r.id} className="flex items-center justify-between px-4 py-3">
-                <span className="font-semibold">{r.name}</span>
-                <span className="text-sm text-navy-500">{r.timezone}</span>
+              <div key={r.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                <span className="flex-1 font-semibold">{r.name}</span>
+                <span className="text-sm text-navy-500">
+                  Statements from day {r.statementStartDay} · {r.timezone}
+                </span>
+                <Button size="sm" variant="secondary" onClick={() => setEditVenue({ id: r.id, name: r.name, statementStartDay: r.statementStartDay })}>
+                  Edit
+                </Button>
               </div>
             ))}
           </Card>
@@ -104,6 +110,7 @@ export default function Setup() {
                   <th className="px-4 py-2">Category</th>
                   <th className="px-4 py-2">Unit</th>
                   <th className="px-4 py-2">Shelf life</th>
+                  <th className="px-4 py-2 text-right">Price</th>
                   {!restaurantId && <th className="px-4 py-2">Restaurant</th>}
                   <th />
                 </tr>
@@ -115,9 +122,10 @@ export default function Setup() {
                     <td className="px-4 py-2">{i.category}</td>
                     <td className="px-4 py-2">{UNIT_LABEL[i.unit as Unit]}</td>
                     <td className="px-4 py-2">{i.defaultShelfLifeDays} days</td>
+                    <td className="px-4 py-2 text-right">{i.priceCents === null ? <span className="text-navy-400">not charged</span> : fmtMoney(i.priceCents)}</td>
                     {!restaurantId && <td className="px-4 py-2 text-navy-500">{nameOf(i.restaurantId)}</td>}
                     <td className="px-4 py-2 text-right">
-                      <Button size="sm" variant="ghost" onClick={() => setEditItem(i)}>
+                      <Button size="sm" variant="ghost" onClick={() => setEditItem({ ...i, priceText: i.priceCents === null ? '' : (i.priceCents / 100).toFixed(2) })}>
                         Edit
                       </Button>
                     </td>
@@ -146,6 +154,30 @@ export default function Setup() {
           <ErrorNote error={error} />
           <Button type="submit">Add</Button>
         </form>
+      </Modal>
+
+      <Modal open={!!editVenue} onClose={() => setEditVenue(null)} title="Edit restaurant">
+        {editVenue && (
+          <form
+            className="space-y-4"
+            onSubmit={async (e: FormEvent) => {
+              e.preventDefault();
+              if (await run(() => patch(`/restaurants/${editVenue.id}`, { name: editVenue.name, statementStartDay: editVenue.statementStartDay }), 'Restaurant saved')) {
+                setEditVenue(null);
+                await reloadRestaurants();
+              }
+            }}
+          >
+            <Field label="Name">
+              <input value={editVenue.name} onChange={(e) => setEditVenue({ ...editVenue, name: e.target.value })} className={inputCls} required maxLength={80} />
+            </Field>
+            <Field label="Statements start on day" hint="16 means each statement runs from the 16th to the 15th of the next month. 1 means calendar months.">
+              <input type="number" min={1} max={28} value={editVenue.statementStartDay} onChange={(e) => setEditVenue({ ...editVenue, statementStartDay: Number(e.target.value) })} className={inputCls} />
+            </Field>
+            <ErrorNote error={error} />
+            <Button type="submit">Save</Button>
+          </form>
+        )}
       </Modal>
 
       <Modal open={!!editFridge} onClose={() => setEditFridge(null)} title={editFridge?.id ? 'Edit fridge' : 'Add fridge'}>
@@ -204,7 +236,10 @@ export default function Setup() {
             className="space-y-4"
             onSubmit={async (e: FormEvent) => {
               e.preventDefault();
-              const body = { name: editItem.name, category: editItem.category, unit: editItem.unit, defaultShelfLifeDays: Number(editItem.defaultShelfLifeDays) };
+              const priceText = (editItem.priceText ?? '').trim();
+              const priceCents = priceText === '' ? null : parseMoney(priceText);
+              if (priceText !== '' && priceCents === null) return setError('Price: use an amount like 13.00, or leave it empty');
+              const body = { name: editItem.name, category: editItem.category, unit: editItem.unit, defaultShelfLifeDays: Number(editItem.defaultShelfLifeDays), priceCents };
               const ok = editItem.id
                 ? await run(() => patch(`/items/${editItem.id}`, { ...body, active: editItem.active }), 'Item saved')
                 : await run(() => post('/items', { ...body, restaurantId: editItem.restaurantId }), 'Item added — now stock it in a fridge under Stock');
@@ -245,6 +280,9 @@ export default function Setup() {
                 <input type="number" min={0} max={3650} value={editItem.defaultShelfLifeDays ?? 3} onChange={(e) => setEditItem({ ...editItem, defaultShelfLifeDays: Number(e.target.value) })} className={inputCls} />
               </Field>
             </div>
+            <Field label="Selling price (N$)" hint="Charged to whoever takes it at the tablet. Leave empty for stock that is not sold to staff (kitchen ingredients).">
+              <input value={editItem.priceText ?? ''} onChange={(e) => setEditItem({ ...editItem, priceText: e.target.value })} inputMode="decimal" className={inputCls} placeholder="e.g. 13.00" />
+            </Field>
             {editItem.id && (
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={editItem.active} onChange={(e) => setEditItem({ ...editItem, active: e.target.checked })} />

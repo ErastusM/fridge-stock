@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import { ApiError, get, post, tokens } from '../../lib/api';
 import type { KioskData, StockLine } from '../../lib/types';
 import { cx, ExpiryBadge, Spinner, StockBadge, useToast } from '../../components/ui';
-import { fmtDate, fmtQty, relativeDay } from '../../lib/format';
+import { fmtDate, fmtMoney, fmtQty, relativeDay } from '../../lib/format';
 import { enqueue, flushQueue, newClientId, readQueue, QueuedMovement } from '../../lib/offlineQueue';
 import { ActionRequest, ActionSheet } from './ActionSheet';
+import { DemoPair, IS_DEMO, PinTable } from '../../demo/DemoBits';
 
 const DONE: Record<string, string> = { TAKE: 'took', ADD: 'put in', WASTE: 'threw away', TRANSFER: 'moved' };
 
@@ -32,8 +33,8 @@ function PairScreen({ onPaired }: { onPaired: () => void }) {
     }
   };
   return (
-    <div className="kiosk flex min-h-full items-center justify-center bg-navy-800 p-6">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-xl">
+    <div className="kiosk flex min-h-full items-center justify-center bg-sand-100 p-6">
+      <div className="w-full max-w-md rounded-3xl border-t-4 border-beacon-500 bg-white p-8 text-center shadow-xl">
         <h1 className="text-2xl font-black text-navy-900">Set up this tablet</h1>
         <p className="mt-2 text-navy-600">
           A manager creates a pairing code under <b>Tablets</b> in the manage app. Type it here to link this tablet to its fridge.
@@ -50,6 +51,14 @@ function PairScreen({ onPaired }: { onPaired: () => void }) {
         <button disabled={code.length !== 6 || busy} onClick={pair} className="mt-6 h-16 w-full rounded-2xl bg-navy-800 text-xl font-bold text-white disabled:bg-navy-200">
           {busy ? 'Pairing…' : 'Pair tablet'}
         </button>
+        {IS_DEMO && (
+          <DemoPair
+            onToken={(t) => {
+              tokens.setDevice(t);
+              onPaired();
+            }}
+          />
+        )}
         <Link to="/" className="mt-4 block text-navy-500 underline">
           Back
         </Link>
@@ -72,7 +81,7 @@ function KioskScreen({ onUnpaired }: { onUnpaired: () => void }) {
 
   const send = useCallback(async (m: Omit<QueuedMovement, 'queuedAt' | 'itemName'>) => {
     const { clientId, type, itemId, qty, pin, expiresOn, reason, toFridgeId } = m;
-    return post<{ staff: { name: string } }>('/kiosk/movements', { clientId, type, itemId, qty, pin, expiresOn, reason, toFridgeId }, 'device');
+    return post<{ staff: { name: string }; account: { chargedCents: number; balanceCents: number } | null }>('/kiosk/movements', { clientId, type, itemId, qty, pin, expiresOn, reason, toFridgeId }, 'device');
   }, []);
 
   const flush = useCallback(async () => {
@@ -153,7 +162,10 @@ function KioskScreen({ onUnpaired }: { onUnpaired: () => void }) {
     const m = { clientId: newClientId(), itemId: line.itemId, ...r };
     try {
       const res = await send(m);
-      toast(`${res.staff.name} ${DONE[r.type]} ${fmtQty(r.qty, line.unit)} × ${line.name}`);
+      toast(
+        `${res.staff.name} ${DONE[r.type]} ${fmtQty(r.qty, line.unit)} × ${line.name}` +
+          (res.account ? ` — ${fmtMoney(res.account.chargedCents)} added. Your balance: ${fmtMoney(res.account.balanceCents)}` : ''),
+      );
       setSelected(null);
       void refresh();
       return null;
@@ -223,7 +235,10 @@ function KioskScreen({ onUnpaired }: { onUnpaired: () => void }) {
               >
                 <div>
                   <p className="text-lg font-bold leading-tight text-navy-900">{i.name}</p>
-                  <p className="text-xs uppercase tracking-wide text-navy-500">{i.category}</p>
+                  <p className="text-xs uppercase tracking-wide text-navy-500">
+                    {i.category}
+                    {i.priceCents !== null && <span className="ml-1 font-bold normal-case tracking-normal text-beacon-600">· {fmtMoney(i.priceCents)}</span>}
+                  </p>
                 </div>
                 <div className="mt-3">
                   <p className={cx('text-3xl font-black', i.status === 'OUT' ? 'text-beacon-500' : 'text-navy-900')}>{fmtQty(i.qty, i.unit)}</p>
@@ -243,6 +258,24 @@ function KioskScreen({ onUnpaired }: { onUnpaired: () => void }) {
         )}
       </main>
 
+      {IS_DEMO && (
+        <details className="mx-4 mb-4 rounded-2xl bg-white p-3 text-sm ring-1 ring-navy-100">
+          <summary className="cursor-pointer font-semibold text-navy-700">Demo PINs · leave this tablet</summary>
+          <PinTable />
+          <button
+            onClick={() => {
+              tokens.setDevice(null);
+              onUnpaired();
+            }}
+            className="mt-3 rounded-xl bg-navy-50 px-3 py-2 font-semibold"
+          >
+            Unpair this demo tablet
+          </button>{' '}
+          <Link to="/manage" className="ml-2 font-semibold text-beacon-600 underline">
+            Open Manage
+          </Link>
+        </details>
+      )}
       <ActionSheet line={selected} tz={tz} otherFridges={data.otherFridges} onClose={close} onSubmit={submit} />
     </div>
   );

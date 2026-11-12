@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { get, post } from '../../lib/api';
 import type { Fridge, StockLine } from '../../lib/types';
 import { Button, Card, Empty, ErrorNote, Field, inputCls, Spinner, useLoad, useToast } from '../../components/ui';
-import { fmtQty, UNIT_LABEL, Unit } from '../../lib/format';
+import { fmtMoney, fmtQty, UNIT_LABEL, Unit } from '../../lib/format';
 import { scopeQuery, useManage } from './context';
 import { FridgePicker } from './FridgePicker';
 
@@ -22,6 +22,8 @@ export default function StockCount() {
 
   const entered = (lines.data ?? []).filter((l) => counts[l.itemId] !== undefined && counts[l.itemId] !== '');
   const changes = entered.filter((l) => Number(counts[l.itemId]) !== l.qty);
+  // What the differences are worth at today's price (missing stock is negative).
+  const varianceCents = changes.reduce((s, l) => s + (l.priceCents ? Math.round((Number(counts[l.itemId]) - l.qty) * l.priceCents) : 0), 0);
 
   const submit = async () => {
     setBusy(true);
@@ -86,6 +88,11 @@ export default function StockCount() {
             <input value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls} maxLength={200} />
           </Field>
         </div>
+        {varianceCents !== 0 && (
+          <p className={`pb-2 font-bold ${varianceCents < 0 ? 'text-beacon-600' : 'text-emerald-700'}`}>
+            {varianceCents < 0 ? 'Missing' : 'Surplus'}: {fmtMoney(Math.abs(varianceCents))}
+          </p>
+        )}
         <Button disabled={busy || entered.length === 0 || reason.trim().length < 3} onClick={submit}>
           {busy ? 'Saving…' : `Save count (${changes.length} correction${changes.length === 1 ? '' : 's'})`}
         </Button>
