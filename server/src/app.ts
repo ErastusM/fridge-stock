@@ -8,6 +8,7 @@ import { authRoutes } from './routes/auth';
 import { kioskRoutes } from './routes/kiosk';
 import { setupRoutes } from './routes/setup';
 import { reportRoutes } from './routes/reports';
+import { accountRoutes } from './routes/accounts';
 
 export async function buildApp({ logger = true }: { logger?: boolean } = {}) {
   const app = Fastify({
@@ -40,6 +41,7 @@ export async function buildApp({ logger = true }: { logger?: boolean } = {}) {
       await api.register(kioskRoutes);
       await api.register(setupRoutes);
       await api.register(reportRoutes);
+      await api.register(accountRoutes);
     },
     { prefix: '/api' },
   );

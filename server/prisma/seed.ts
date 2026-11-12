@@ -45,7 +45,18 @@ const ITEMS: ItemSeed[] = [
   ['Orange juice', 'Drinks', 'L', 7],
 ];
 
-const VENUES: { name: string; fridges: [string, FridgeKind, string[]][] }[] = [
+// Staff-paid office drinks (prices in cents), charged to whoever takes them.
+const OFFICE_ITEMS: [string, string, Unit, number, number][] = [
+  ['Coke 300 ml', 'Drinks', 'EACH', 180, 1300],
+  ['Coke Zero 300 ml', 'Drinks', 'EACH', 180, 1200],
+  ['Sprite 300 ml', 'Drinks', 'EACH', 180, 1200],
+  ['Monster 500 ml', 'Drinks', 'EACH', 365, 2500],
+  ['Exotic juice 300 ml', 'Drinks', 'EACH', 90, 1300],
+  ['Still water 500 ml', 'Drinks', 'EACH', 365, 800],
+  ['Sparkling water 500 ml', 'Drinks', 'EACH', 365, 800],
+];
+
+const VENUES: { name: string; office?: boolean; fridges: [string, FridgeKind, string[]][] }[] = [
   {
     name: 'Lighthouse Venue A (placeholder)',
     fridges: [
@@ -61,6 +72,7 @@ const VENUES: { name: string; fridges: [string, FridgeKind, string[]][] }[] = [
       ['Bar fridge', 'BAR', ['Drinks']],
     ],
   },
+  { name: 'Lighthouse Head Office (placeholder)', office: true, fridges: [['Office fridge', 'REACH_IN', ['Drinks']]] },
 ];
 
 const randomPin = (used: Set<string>) => {
@@ -122,8 +134,9 @@ async function main() {
     }
 
     const items = new Map<string, { id: string; unit: Unit; category: string; shelf: number }>();
-    for (const [name, category, unit, shelf] of ITEMS) {
-      const it = await db.item.create({ data: { restaurantId: r.id, name, category, unit, defaultShelfLifeDays: shelf } });
+    const catalogue: [string, string, Unit, number, number | null][] = v.office ? OFFICE_ITEMS : ITEMS.map(([a, b, c, d]) => [a, b, c, d, null]);
+    for (const [name, category, unit, shelf, priceCents] of catalogue) {
+      const it = await db.item.create({ data: { restaurantId: r.id, name, category, unit, defaultShelfLifeDays: shelf, priceCents } });
       items.set(name, { id: it.id, unit, category, shelf });
     }
 

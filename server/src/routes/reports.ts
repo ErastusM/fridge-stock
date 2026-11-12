@@ -9,6 +9,8 @@ import { stockLines } from '../services/view';
 import { addDays, localDateString, parseDateString, startOfLocalDay } from '../domain/time';
 import { round3 } from '../domain/fifo';
 import { toCsv } from '../domain/csv';
+import { chargeFor, formatCents } from '../domain/money';
+import { balances } from '../services/accounts';
 
 const manager = { preHandler: requireRole('MANAGER') };
 const DEFAULT_TZ = 'Africa/Windhoek';
@@ -76,6 +78,7 @@ const movementInclude = {
   item: { select: { name: true, unit: true, category: true } },
   staff: { select: { name: true } },
   device: { select: { name: true } },
+  recordedBy: { select: { name: true } },
 } satisfies Prisma.MovementInclude;
 
 function sendCsv(reply: FastifyReply, filename: string, body: string) {
@@ -112,9 +115,27 @@ export async function reportRoutes(app: FastifyInstance) {
       where: { createdAt: { gte: since }, fridge: scope },
       _count: { _all: true },
     });
+    const money = await Promise.all(
+      restaurants.map(async (r) => {
+        const todayStart = startOfLocalDay(localDateString(new Date(), r.timezone), r.timezone);
+        const [sales, bal] = await Promise.all([
+          db.movement.aggregate({ _sum: { amountCents: true }, where: { type: 'TAKE', createdAt: { gte: todayStart }, fridge: { restaurantId: r.id } } }),
+          balances(r.id, r.timezone),
+        ]);
+        return {
+          id: r.id,
+          salesTodayCents: sales._sum.amountCents ?? 0,
+          owedCents: [...bal.values()].reduce((s, b) => s + Math.max(0, b.balanceCents), 0),
+        };
+      }),
+    );
     const summary = restaurants.map((r) => {
       const mine = lines.filter((l) => l.restaurantId === r.id);
+      const m = money.find((x) => x.id === r.id)!;
       return {
+        stockValueCents: mine.reduce((s, l) => s + (l.priceCents ? chargeFor(l.qty, l.priceCents) : 0), 0),
+        salesTodayCents: m.salesTodayCents,
+        owedCents: m.owedCents,
         id: r.id,
         name: r.name,
         fridges: r.fridges.length,
@@ -154,7 +175,7 @@ export async function reportRoutes(app: FastifyInstance) {
     const { where, tz } = await movementWhere(req, q);
     const rows = await db.movement.findMany({ where, include: movementInclude, orderBy: { createdAt: 'asc' }, take: 50_000 });
     const csv = toCsv([
-      ['When', 'Restaurant', 'Fridge', 'Item', 'Category', 'Type', 'Qty', 'Unit', 'Stock after', 'Who', 'Tablet', 'Reason', 'Use-by'],
+      ['When', 'Restaurant', 'Fridge', 'Item', 'Category', 'Type', 'Qty', 'Unit', 'Stock after', 'Who', 'Tablet', 'Entered by', 'Unit price', 'Charged', 'Supplier', 'Reason', 'Use-by'],
       ...rows.map((m) => [
         localStamp(m.createdAt, tz),
         m.fridge.restaurant.name,
@@ -167,6 +188,10 @@ export async function reportRoutes(app: FastifyInstance) {
         m.qtyAfter,
         m.staff.name,
         m.device?.name ?? '',
+        m.recordedBy?.name ?? '',
+        m.unitPriceCents === null ? '' : formatCents(m.unitPriceCents),
+        m.amountCents === null ? '' : formatCents(m.amountCents),
+        m.supplier ?? '',
         m.reason ?? '',
         m.expiresAt ? localDateString(m.expiresAt, tz) : '',
       ]),
@@ -192,23 +217,27 @@ export async function reportRoutes(app: FastifyInstance) {
       },
       include: { item: { select: { name: true, unit: true, category: true } } },
     });
-    const map = new Map<string, { date: string; itemId: string; name: string; category: string; unit: string; taken: number; wasted: number; added: number }>();
+    const map = new Map<string, { date: string; itemId: string; name: string; category: string; unit: string; taken: number; wasted: number; added: number; salesCents: number }>();
     for (const m of rows) {
       const date = localDateString(m.createdAt, tz);
       const key = `${date}|${m.itemId}`;
-      const e = map.get(key) ?? { date, itemId: m.itemId, name: m.item.name, category: m.item.category, unit: m.item.unit, taken: 0, wasted: 0, added: 0 };
-      if (m.type === 'TAKE') e.taken = round3(e.taken + m.qty);
+      const e = map.get(key) ?? { date, itemId: m.itemId, name: m.item.name, category: m.item.category, unit: m.item.unit, taken: 0, wasted: 0, added: 0, salesCents: 0 };
+      if (m.type === 'TAKE') {
+        e.taken = round3(e.taken + m.qty);
+        e.salesCents += m.amountCents ?? 0;
+      }
       if (m.type === 'WASTE') e.wasted = round3(e.wasted + m.qty);
       if (m.type === 'ADD') e.added = round3(e.added + m.qty);
       map.set(key, e);
     }
     const daily = [...map.values()].sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
-    const totals = new Map<string, { itemId: string; name: string; category: string; unit: string; taken: number; wasted: number; added: number }>();
+    const totals = new Map<string, { itemId: string; name: string; category: string; unit: string; taken: number; wasted: number; added: number; salesCents: number }>();
     for (const r of daily) {
-      const t = totals.get(r.itemId) ?? { itemId: r.itemId, name: r.name, category: r.category, unit: r.unit, taken: 0, wasted: 0, added: 0 };
+      const t = totals.get(r.itemId) ?? { itemId: r.itemId, name: r.name, category: r.category, unit: r.unit, taken: 0, wasted: 0, added: 0, salesCents: 0 };
       t.taken = round3(t.taken + r.taken);
       t.wasted = round3(t.wasted + r.wasted);
       t.added = round3(t.added + r.added);
+      t.salesCents += r.salesCents;
       totals.set(r.itemId, t);
     }
     const wasteReasons = new Map<string, number>();
@@ -219,6 +248,7 @@ export async function reportRoutes(app: FastifyInstance) {
       timezone: tz,
       daily,
       totals: [...totals.values()].sort((a, b) => b.taken + b.wasted - (a.taken + a.wasted)),
+      salesCents: daily.reduce((s, r) => s + r.salesCents, 0),
       wasteReasons: [...wasteReasons.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count),
     };
   }
@@ -226,7 +256,7 @@ export async function reportRoutes(app: FastifyInstance) {
   app.get('/reports/usage', manager, async (req) => usage(req));
   app.get('/reports/usage.csv', manager, async (req, reply) => {
     const u = await usage(req);
-    const csv = toCsv([['Date', 'Item', 'Category', 'Unit', 'Taken', 'Wasted', 'Added'], ...u.daily.map((r) => [r.date, r.name, r.category, r.unit, r.taken, r.wasted, r.added])]);
+    const csv = toCsv([['Date', 'Item', 'Category', 'Unit', 'Taken', 'Wasted', 'Added', 'Sales'], ...u.daily.map((r) => [r.date, r.name, r.category, r.unit, r.taken, r.wasted, r.added, formatCents(r.salesCents)])]);
     return sendCsv(reply, `usage-${u.from}-to-${u.to}.csv`, csv);
   });
 

@@ -13,6 +13,7 @@ export interface StockLine {
   category: string;
   unit: string;
   defaultShelfLifeDays: number;
+  priceCents: number | null;
   qty: number;
   minQty: number;
   parLevel: number;
@@ -64,6 +65,7 @@ export async function stockLines(where: { fridgeIds?: string[]; restaurantId?: s
         category: r.item.category,
         unit: r.item.unit,
         defaultShelfLifeDays: r.item.defaultShelfLifeDays,
+        priceCents: r.item.priceCents,
         qty,
         minQty: r.minQty,
         parLevel: r.parLevel,

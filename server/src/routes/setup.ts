@@ -63,7 +63,11 @@ async function assertPinFree(digest: string, restaurantId: string | null, role: 
   if (clash) throw conflict('That PIN is already in use. Choose another.');
 }
 
-const RestaurantBody = z.object({ name, timezone: z.string().refine(validTimezone, 'Unknown time zone').default('Africa/Windhoek') });
+const RestaurantBody = z.object({
+  name,
+  timezone: z.string().refine(validTimezone, 'Unknown time zone').default('Africa/Windhoek'),
+  statementStartDay: z.number().int().min(1).max(28).default(16),
+});
 const FridgeBody = z.object({ restaurantId: z.string().optional(), name, kind: z.nativeEnum(FridgeKind).default('REACH_IN') });
 const FridgePatch = z.object({ name: name.optional(), kind: z.nativeEnum(FridgeKind).optional(), active: z.boolean().optional() });
 const ItemBody = z.object({
@@ -72,6 +76,8 @@ const ItemBody = z.object({
   category: z.string().trim().min(1).max(40).default('General'),
   unit: z.nativeEnum(Unit).default('EACH'),
   defaultShelfLifeDays: z.number().int().min(0).max(3650).default(3),
+  /** Selling price in cents; null = not charged. */
+  priceCents: z.number().int().min(0).max(10_000_000).nullable().optional(),
 });
 const ItemPatch = ItemBody.omit({ restaurantId: true }).partial().extend({ active: z.boolean().optional() });
 const FridgeItemBody = z.object({ minQty: z.number().default(0), parLevel: z.number().default(0) });

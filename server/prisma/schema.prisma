@@ -46,12 +46,15 @@ model Restaurant {
   id        String   @id @default(cuid())
   name      String   @unique
   timezone  String   @default("Africa/Windhoek")
+  /// Staff statements run from this day of one month to the day before it in the next (16 = 16th–15th).
+  statementStartDay Int @default(16)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  fridges Fridge[]
-  items   Item[]
-  staff   Staff[]
+  fridges  Fridge[]
+  items    Item[]
+  staff    Staff[]
+  payments Payment[]
 }
 
 model Fridge {
@@ -80,6 +83,8 @@ model Item {
   category             String     @default("General")
   unit                 Unit       @default(EACH)
   defaultShelfLifeDays Int        @default(3)
+  /// Selling price in cents (N$13.00 = 1300). null = not charged to the person who takes it.
+  priceCents           Int?
   active               Boolean    @default(true)
   createdAt            DateTime   @default(now())
 
@@ -129,7 +134,7 @@ model Movement {
   /// Stock of this item in this fridge after the movement.
   qtyAfter      Float
   staffId       String
-  staff         Staff        @relation(fields: [staffId], references: [id])
+  staff         Staff        @relation("mover", fields: [staffId], references: [id])
   deviceId      String?
   device        Device?      @relation(fields: [deviceId], references: [id])
   reason        String?
@@ -137,12 +142,22 @@ model Movement {
   expiresAt     DateTime?
   /// Links the two halves of a transfer.
   transferGroup String?
+  /// Price per unit when it was taken, frozen so a later price change never rewrites history.
+  unitPriceCents Int?
+  /// What this TAKE was charged to the person (qty × unit price, rounded to the cent).
+  amountCents   Int?
+  /// Who delivered it (ADD from a delivery).
+  supplier      String?
+  /// Who entered it in the manage app on someone else's behalf (null = the person, at the tablet).
+  recordedById  String?
+  recordedBy    Staff?       @relation("enterer", fields: [recordedById], references: [id])
   /// Idempotency key from the tablet, so a retried request never counts twice.
   clientId      String?      @unique
   createdAt     DateTime     @default(now())
 
   @@index([fridgeId, createdAt])
   @@index([createdAt])
+  @@index([staffId, createdAt])
 }
 
 model Staff {
@@ -159,9 +174,45 @@ model Staff {
   active            Boolean     @default(true)
   createdAt         DateTime    @default(now())
 
-  movements Movement[]
+  movements Movement[] @relation("mover")
+  entered   Movement[] @relation("enterer")
+  payments  Payment[] @relation("payer")
+  recorded  Payment[] @relation("recorder")
 
   @@index([pinDigest])
+}
+
+enum PaymentMethod {
+  CASH
+  EFT
+  SALARY_DEDUCTION
+  CARD
+  /// A write-off or correction that reduces what is owed (e.g. a wrongly charged take).
+  CREDIT
+}
+
+/// Money received from (or credited to) a person against their fridge account.
+model Payment {
+  id           String        @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
+  staffId      String
+  staff        Staff         @relation("payer", fields: [staffId], references: [id])
+  amountCents  Int
+  method       PaymentMethod @default(CASH)
+  /// Local calendar day the money was received.
+  paidOn       DateTime
+  reference    String?
+  recordedById String
+  recordedBy   Staff         @relation("recorder", fields: [recordedById], references: [id])
+  /// A mistaken entry is voided, never deleted: it stays on record and stops counting.
+  voidedAt     DateTime?
+  voidedById   String?
+  voidReason   String?
+  createdAt    DateTime      @default(now())
+
+  @@index([restaurantId, paidOn])
+  @@index([staffId, paidOn])
 }
 
 model Device {

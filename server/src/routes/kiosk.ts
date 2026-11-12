@@ -7,6 +7,7 @@ import { deviceOf, KioskDevice, requireDevice } from '../principal';
 import { newToken, pinDigest, PIN_RE, RateLimiter, sha256 } from '../security';
 import { addStock, removeStock, transferStock } from '../services/stock';
 import { stockLines } from '../services/view';
+import { balances } from '../services/accounts';
 import { endOfLocalDay, parseDateString } from '../domain/time';
 
 const pairLimiter = new RateLimiter(10, 60_000);
@@ -137,6 +138,12 @@ export async function kioskRoutes(app: FastifyInstance) {
     } else {
       movement = await removeStock({ ...base, qty: body.qty, type: body.type, reason: body.reason });
     }
-    return { movement, staff: { id: staff.id, name: staff.name } };
+    // A charged take tells the person what it cost and what they now owe at this venue.
+    let account: { chargedCents: number; balanceCents: number } | null = null;
+    if (movement.amountCents !== null && movement.amountCents !== undefined) {
+      const bal = (await balances(d.restaurantId, d.timezone)).get(staff.id);
+      account = { chargedCents: movement.amountCents, balanceCents: bal?.balanceCents ?? movement.amountCents };
+    }
+    return { movement, staff: { id: staff.id, name: staff.name }, account };
   });
 }

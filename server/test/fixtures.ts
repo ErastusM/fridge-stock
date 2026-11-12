@@ -6,7 +6,7 @@ export const PW = 'correct-horse-battery';
 
 export async function wipe() {
   await db.$executeRawUnsafe(
-    'TRUNCATE "Movement", "Batch", "FridgeItem", "PairingCode", "Device", "Staff", "Item", "Fridge", "Restaurant" CASCADE',
+    'TRUNCATE "Payment", "Movement", "Batch", "FridgeItem", "PairingCode", "Device", "Staff", "Item", "Fridge", "Restaurant" CASCADE',
   );
 }
 
@@ -21,7 +21,7 @@ export async function world() {
     const walkIn = await db.fridge.create({ data: { restaurantId: r.id, name: 'Walk-in', kind: 'WALK_IN' } });
     const bar = await db.fridge.create({ data: { restaurantId: r.id, name: 'Bar', kind: 'BAR' } });
     const chicken = await db.item.create({ data: { restaurantId: r.id, name: 'Chicken', category: 'Meat', unit: 'KG', defaultShelfLifeDays: 3 } });
-    const beer = await db.item.create({ data: { restaurantId: r.id, name: 'Beer', category: 'Drinks', unit: 'EACH', defaultShelfLifeDays: 180 } });
+    const beer = await db.item.create({ data: { restaurantId: r.id, name: 'Beer', category: 'Drinks', unit: 'EACH', defaultShelfLifeDays: 180, priceCents: 1300 } });
     await db.fridgeItem.create({ data: { fridgeId: walkIn.id, itemId: chicken.id, minQty: 2, parLevel: 10 } });
     await db.fridgeItem.create({ data: { fridgeId: walkIn.id, itemId: beer.id, minQty: 0, parLevel: 0 } });
     await db.fridgeItem.create({ data: { fridgeId: bar.id, itemId: beer.id, minQty: 6, parLevel: 24 } });

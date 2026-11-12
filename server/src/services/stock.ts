@@ -5,6 +5,7 @@ import { conflict, badRequest } from '../errors';
 import { BatchLike, consumeFifo, round3, totalQty } from '../domain/fifo';
 import { quantityError } from '../domain/quantity';
 import { defaultExpiry } from '../domain/time';
+import { chargeFor } from '../domain/money';
 
 /**
  * Every change to what is in a fridge goes through this module, inside one transaction that
@@ -15,12 +16,15 @@ import { defaultExpiry } from '../domain/time';
 export interface Actor {
   staffId: string;
   deviceId?: string | null;
+  /** A manager entering it on the person's behalf in the manage app. */
+  recordedById?: string | null;
 }
 
 interface ItemRef {
   id: string;
   unit: Unit;
   defaultShelfLifeDays: number;
+  priceCents?: number | null;
 }
 
 export interface MovementInput {
@@ -88,7 +92,7 @@ async function run<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
   }
 }
 
-export async function addStock(input: MovementInput & { qty: number; expiresAt?: Date | null; reason?: string | null }) {
+export async function addStock(input: MovementInput & { qty: number; expiresAt?: Date | null; reason?: string | null; supplier?: string | null }) {
   checkQty(input.qty, input.item.unit);
   const existing = await replay(input.clientId);
   if (existing) return existing;
@@ -109,6 +113,8 @@ export async function addStock(input: MovementInput & { qty: number; expiresAt?:
         staffId: input.actor.staffId,
         deviceId: input.actor.deviceId ?? null,
         reason: input.reason ?? null,
+        supplier: input.supplier?.trim() || null,
+        recordedById: input.actor.recordedById ?? null,
         expiresAt,
         clientId: input.clientId ?? null,
       },
@@ -124,6 +130,8 @@ export async function removeStock(input: MovementInput & { qty: number; type: 'T
   return run(async (tx) => {
     await lockFridgeItem(tx, input.fridgeId, input.item.id);
     const { after } = await deduct(tx, input.fridgeId, input.item.id, input.qty);
+    // Only a TAKE is charged to the person; waste is the business's loss. The price is frozen here.
+    const price = input.type === 'TAKE' ? input.item.priceCents ?? null : null;
     return tx.movement.create({
       data: {
         fridgeId: input.fridgeId,
@@ -133,7 +141,10 @@ export async function removeStock(input: MovementInput & { qty: number; type: 'T
         qtyAfter: after,
         staffId: input.actor.staffId,
         deviceId: input.actor.deviceId ?? null,
+        recordedById: input.actor.recordedById ?? null,
         reason: input.reason?.trim() || null,
+        unitPriceCents: price,
+        amountCents: price === null ? null : chargeFor(input.qty, price),
         clientId: input.clientId ?? null,
       },
     });
