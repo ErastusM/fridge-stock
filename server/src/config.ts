@@ -10,7 +10,8 @@ function secret(name: string): string {
 }
 
 export const config = {
-  port: Number(process.env.PORT ?? 4100),
+  // API_PORT, not PORT: dev tooling exports PORT for the web server and the two must not collide.
+  port: Number(process.env.API_PORT ?? 4100),
   host: process.env.HOST ?? '127.0.0.1',
   jwtSecret: secret('JWT_SECRET'),
   pinSecret: secret('PIN_SECRET'),
