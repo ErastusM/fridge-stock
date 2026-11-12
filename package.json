@@ -1,0 +1,20 @@
+{
+  "name": "fridge-stock",
+  "private": true,
+  "description": "Fridge stock tracking for the Lighthouse group, Swakopmund",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "setup": "npm run db:up && npm run db:migrate -w server && npm run db:seed -w server",
+    "dev": "concurrently -k -n server,web -c blue,green \"npm run dev -w server\" \"npm run dev -w web\"",
+    "build": "npm run build -w server && npm run build -w web",
+    "test": "npm test -w server && npm test -w web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
