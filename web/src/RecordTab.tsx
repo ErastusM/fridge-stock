@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { amountOf, fmtDate, fmtTime, formatMoney, recordTake, stockState, voidEntry, type Entry } from './model';
 import { Badge, Button, Empty, ErrorLine, Field, inputCls, Modal, useCtx, useFormError } from './ui';
 
@@ -29,6 +29,16 @@ export function RecordTab({ goTo }: { goTo: (tab: 'people' | 'fridge') => void }
     setWho('');
     setError('');
   };
+  // Keep the chosen person's tile in view in the sideways row.
+  const row = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const r = row.current;
+    const el = r?.querySelector('[aria-checked="true"]');
+    if (!r || !el) return;
+    const a = el.getBoundingClientRect();
+    const b = r.getBoundingClientRect();
+    if (a.left < b.left || a.right > b.right) r.scrollLeft += a.left - b.left - 16;
+  }, [personId]);
   const bump = (id: string, by: number) => setQty((q) => ({ ...q, [id]: Math.max(0, Math.min(99, (q[id] ?? 0) + by)) }));
 
   const save = () => {
@@ -79,53 +89,58 @@ export function RecordTab({ goTo }: { goTo: (tab: 'people' | 'fridge') => void }
     );
   }
 
-  if (!person) {
-    return (
-      <div className="space-y-6">
-        <section>
-          <h2 className="mb-3 text-xl font-black text-navy-900">Who is taking something?</h2>
-          {people.length > 8 && (
+  return (
+    <div className="pb-40">
+      {/* Who: one row of name tiles across the top, scrolls sideways; search narrows it. */}
+      <section className="mb-5">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h2 className="min-w-0 text-xl font-black text-navy-900">
+            {person ? (
+              <>
+                What did <span className="text-beacon-600">{person.name}</span> take?
+              </>
+            ) : (
+              'Who is taking something?'
+            )}
+          </h2>
+          {people.length > 6 && (
             <input
-              className={`${inputCls} mb-3`}
+              className="h-10 w-36 shrink-0 rounded-xl border border-navy-200 bg-white px-3 text-base outline-none focus:border-navy-800 sm:w-56"
               type="search"
-              placeholder={`Search ${people.length} people`}
+              placeholder="Find name"
               value={who}
               onChange={(e) => setWho(e.target.value)}
-              aria-label="Search people"
+              aria-label="Find a person"
             />
           )}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-            {shownPeople.map((p) => (
+        </div>
+        <div ref={row} className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:thin]" role="radiogroup" aria-label="Who">
+          {shownPeople.map((p) => {
+            const on = p.id === personId;
+            return (
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setPersonId(p.id)}
-                className="flex min-h-14 items-center gap-2 rounded-xl border border-navy-200 bg-white px-2 py-2 text-left shadow-sm hover:border-navy-800 active:scale-[0.98]"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setPersonId(on ? null : p.id)}
+                className={`flex h-12 shrink-0 snap-start items-center gap-2 rounded-full border pl-1.5 pr-4 font-bold whitespace-nowrap ${
+                  on ? 'border-beacon-500 bg-beacon-500 text-white' : 'border-navy-200 bg-white text-navy-900 hover:border-navy-800'
+                }`}
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy-800 text-sm font-black text-white">
+                <span
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-black ${on ? 'bg-white text-beacon-600' : 'bg-navy-800 text-white'}`}
+                >
                   {initials(p.name)}
                 </span>
-                <span className="min-w-0 break-words font-bold leading-tight text-navy-900">{p.name}</span>
+                {p.name}
               </button>
-            ))}
-          </div>
-          {shownPeople.length === 0 && <p className="mt-2 text-navy-600">No one called “{who.trim()}”.</p>}
-        </section>
-        <RecentTakes />
-      </div>
-    );
-  }
+            );
+          })}
+          {shownPeople.length === 0 && <p className="py-3 text-navy-600">No one called “{who.trim()}”.</p>}
+        </div>
+      </section>
 
-  return (
-    <div className="pb-40">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="min-w-0 text-xl font-black text-navy-900">
-          What did <span className="text-beacon-600">{person.name}</span> take?
-        </h2>
-        <Button kind="ghost" onClick={reset}>
-          Change
-        </Button>
-      </div>
       {items.length > 8 && (
         <input className={`${inputCls} mb-3`} placeholder="Search items" value={search} onChange={(e) => setSearch(e.target.value)} />
       )}
@@ -174,11 +189,15 @@ export function RecordTab({ goTo }: { goTo: (tab: 'people' | 'fridge') => void }
         })}
       </div>
 
+      <div className="mt-8">
+        <RecentTakes />
+      </div>
+
       <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 border-t border-navy-200 bg-white/95 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur sm:bottom-0">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1">
             <div className="font-black text-navy-900">
-              {count === 0 ? 'Tap the items taken' : `${count} item${count === 1 ? '' : 's'} · ${formatMoney(total)}`}
+              {!person ? 'Choose who, above' : count === 0 ? `Tap what ${person.name} took` : `${person.name} · ${count} item${count === 1 ? '' : 's'} · ${formatMoney(total)}`}
             </div>
             {when === '' ? (
               <div className="mt-1 text-sm text-navy-600">
@@ -204,7 +223,7 @@ export function RecordTab({ goTo }: { goTo: (tab: 'people' | 'fridge') => void }
               </label>
             )}
           </div>
-          <Button kind="primary" className="px-6" disabled={count === 0} onClick={save}>
+          <Button kind="primary" className="px-6" disabled={count === 0 || !person} onClick={save}>
             Save
           </Button>
         </div>
