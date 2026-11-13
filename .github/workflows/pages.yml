@@ -1,6 +1,5 @@
-# Publishes the in-browser DEMO (no server, sample data on each device) to GitHub Pages.
-# The real app needs the API and Postgres and is deployed separately.
-name: Demo on GitHub Pages
+# Publishes the app to GitHub Pages. It runs entirely in the browser; records stay on each device.
+name: Publish to GitHub Pages
 
 on:
   push:
@@ -27,12 +26,10 @@ jobs:
           cache: npm
       - run: npm ci --workspace web --include-workspace-root
       - run: npm test --workspace web
-      - run: npm run build:demo --workspace web
-      # Pages has no SPA fallback; the demo routes by hash, this only covers a mistyped path.
-      - run: cp web/dist-demo/index.html web/dist-demo/404.html
+      - run: npm run build --workspace web
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web/dist-demo
+          path: web/dist
 
   deploy:
     needs: build

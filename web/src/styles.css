@@ -37,19 +37,13 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Kiosk: no accidental text selection or double-tap zoom on the tablet. */
-.kiosk {
-  user-select: none;
-  touch-action: manipulation;
-}
-
 input,
 select,
 textarea {
   font-size: 16px;
 }
 
-/* Printing statements: only the sheets, one per page. */
+/* Printing the monthly report: no buttons or navigation; optionally one person per page. */
 @media print {
   .no-print {
     display: none !important;
@@ -57,10 +51,14 @@ textarea {
   body {
     background: #fff;
   }
-  .statement-sheet {
-    break-after: page;
+  main {
+    padding: 0 !important;
+    max-width: none !important;
   }
-  .statement-sheet:last-child {
-    break-after: auto;
+  .report-person {
+    break-inside: avoid;
+  }
+  .report-person.page-each {
+    break-after: page;
   }
 }

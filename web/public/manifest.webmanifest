@@ -1,12 +1,19 @@
 {
-  "name": "Fridge Stock",
-  "short_name": "Fridge Stock",
-  "description": "Fridge stock tracking for the Lighthouse Group, Swakopmund",
+  "name": "Reception Fridge",
+  "short_name": "Fridge",
+  "description": "Who took what from the reception fridge \u2014 Lighthouse Group",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#54595f",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
