@@ -13,6 +13,8 @@ export function RecordTab({ goTo }: { goTo: (tab: 'people' | 'fridge') => void }
 
   const people = data.people.filter((p) => p.active).sort((a, b) => a.name.localeCompare(b.name));
   const items = data.items.filter((i) => i.active).sort((a, b) => a.name.localeCompare(b.name));
+  const [who, setWho] = useState('');
+  const shownPeople = people.filter((p) => p.name.toLowerCase().includes(who.trim().toLowerCase()));
   const person = data.people.find((p) => p.id === personId);
   const shown = items.filter((i) => i.name.toLowerCase().includes(search.trim().toLowerCase()));
   const chosen = items.filter((i) => (qty[i.id] ?? 0) > 0);
@@ -24,6 +26,7 @@ export function RecordTab({ goTo }: { goTo: (tab: 'people' | 'fridge') => void }
     setQty({});
     setWhen('');
     setSearch('');
+    setWho('');
     setError('');
   };
   const bump = (id: string, by: number) => setQty((q) => ({ ...q, [id]: Math.max(0, Math.min(99, (q[id] ?? 0) + by)) }));
@@ -81,21 +84,32 @@ export function RecordTab({ goTo }: { goTo: (tab: 'people' | 'fridge') => void }
       <div className="space-y-6">
         <section>
           <h2 className="mb-3 text-xl font-black text-navy-900">Who is taking something?</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {people.map((p) => (
+          {people.length > 8 && (
+            <input
+              className={`${inputCls} mb-3`}
+              type="search"
+              placeholder={`Search ${people.length} people`}
+              value={who}
+              onChange={(e) => setWho(e.target.value)}
+              aria-label="Search people"
+            />
+          )}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {shownPeople.map((p) => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => setPersonId(p.id)}
-                className="flex min-h-20 items-center gap-3 rounded-2xl border border-navy-200 bg-white p-3 text-left shadow-sm hover:border-navy-800 active:scale-[0.98]"
+                className="flex min-h-14 items-center gap-2 rounded-xl border border-navy-200 bg-white px-2 py-2 text-left shadow-sm hover:border-navy-800 active:scale-[0.98]"
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy-800 text-lg font-black text-white">
-                  {p.name.slice(0, 1).toUpperCase()}
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy-800 text-sm font-black text-white">
+                  {initials(p.name)}
                 </span>
-                <span className="min-w-0 break-words text-lg font-bold text-navy-900">{p.name}</span>
+                <span className="min-w-0 break-words font-bold leading-tight text-navy-900">{p.name}</span>
               </button>
             ))}
           </div>
+          {shownPeople.length === 0 && <p className="mt-2 text-navy-600">No one called “{who.trim()}”.</p>}
         </section>
         <RecentTakes />
       </div>
@@ -202,6 +216,12 @@ export function RecordTab({ goTo }: { goTo: (tab: 'people' | 'fridge') => void }
       </div>
     </div>
   );
+}
+
+/** "Erastus Matheus" → "EM", "Ricardo" → "R". */
+function initials(name: string) {
+  const parts = name.split(' ').filter(Boolean);
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
 
 function toLocalInput(d: Date) {
